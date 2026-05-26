@@ -5,20 +5,23 @@ import (
 
 	"github.com/google/uuid"
 	db "github.com/kidus-yoseph1/job-board-platform/job-service/db/generated"
+	"github.com/kidus-yoseph1/job-board-platform/job-service/internal/cache"
 	"github.com/kidus-yoseph1/job-board-platform/job-service/internal/domain"
 	"github.com/kidus-yoseph1/job-board-platform/job-service/internal/repository"
 	"github.com/kidus-yoseph1/job-board-platform/job-service/pkg/logger"
 )
 
 type JobService struct {
-	JobRepo *repository.JobRepo
-	log     *logger.Logger
+	JobRepo  *repository.JobRepo
+	log      *logger.Logger
+	jobCache *cache.JobCache
 }
 
-func NewJobService(JobRepo *repository.JobRepo) *JobService {
+func NewJobService(JobRepo *repository.JobRepo, jobCache *cache.JobCache) *JobService {
 	return &JobService{
-		JobRepo: JobRepo,
-		log:     logger.Get(),
+		JobRepo:  JobRepo,
+		log:      logger.Get(),
+		jobCache: jobCache,
 	}
 }
 
@@ -47,6 +50,15 @@ func (s *JobService) CreateJob(ctx context.Context, title string, description st
 func (s *JobService) GetJobByID(ctx context.Context, id uuid.UUID) (*db.Job, error) {
 	s.log.Infow("attempting to get job by id", "jobID", id)
 
+	cachedJob, err := s.jobCache.GetJob(ctx, id.String())
+	if err != nil {
+		s.log.Warnw("redis error during get (falling back to db)", "error", err, "jobID", id)
+	}
+	if cachedJob != nil {
+		s.log.Infow("cache hit! returning job from redis", "jobID", id)
+		return cachedJob, nil
+	}
+
 	job, err := s.JobRepo.GetJobByID(ctx, id)
 	if err != nil {
 		s.log.Errorw("database error fetching job", "error", err, "jobID", id)
@@ -56,6 +68,12 @@ func (s *JobService) GetJobByID(ctx context.Context, id uuid.UUID) (*db.Job, err
 		s.log.Warnw("job not found", "jobID", id)
 		return nil, domain.ErrNotFound("job not found")
 	}
+
+	err = s.jobCache.SetJob(ctx, job)
+	if err != nil {
+		s.log.Warnw("failed to cache job", "error", err, "jobID", id)
+	}
+
 	return job, nil
 }
 
@@ -107,6 +125,8 @@ func (s *JobService) UpdateJobStatus(ctx context.Context, id uuid.UUID, status s
 		return nil, domain.ErrInternal("failed to update job status")
 	}
 
+	_ = s.jobCache.InvalidateJob(ctx, id.String())
+
 	s.log.Infow("job status updated successfully", "jobID", id)
 	return updatedJob, nil
 }
@@ -119,6 +139,8 @@ func (s *JobService) DeleteJob(ctx context.Context, id uuid.UUID) error {
 		s.log.Errorw("database error deleting job", "error", err, "jobID", id)
 		return domain.ErrInternal("failed to delete job")
 	}
+
+	_ = s.jobCache.InvalidateJob(ctx, id.String())
 
 	s.log.Infow("job deleted successfully", "jobID", id)
 	return nil
