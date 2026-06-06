@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+package jobboard;
+
+// Ensure the generated Go package path is correct.
+option go_package = "github.com/kidus-yoseph1/job-board-platform/proto/pb";
+
+// JobBoardService provides methods for looking up jobs, companies, and users.
+// It is hosted by the job-service and consumed by the notification-service.
+service JobBoardService {
+  // GetJobDetails returns a job's details including its parent company owner's profile
+  // (name and email) in a single request to minimize microservice network roundtrips.
+  rpc GetJobDetails (GetJobRequest) returns (GetJobResponse);
+
+  // GetUserDetails returns the basic profile details (name and email) of any registered user.
+  rpc GetUserDetails (GetUserRequest) returns (GetUserResponse);
+}
+
+// Request payload for GetJobDetails.
+message GetJobRequest {
+  string job_id = 1;
+}
+
+// Response payload for GetJobDetails.
+message GetJobResponse {
+  string id = 1;
+  string title = 2;
+  string company_id = 3;
+  string company_name = 4;
+  string company_email = 5; // The email of the company owner/recruiter
+}
+
+// Request payload for GetUserDetails.
+message GetGetUserRequest {
+  string user_id = 1;
+}
+
+// Request payload alias to match method signature.
+message GetUserRequest {
+  string user_id = 1;
+}
+
+// Response payload for GetUserDetails.
+message GetUserResponse {
+  string id = 1;
+  string full_name = 2;
+  string email = 3;
+  string role = 4;
+}
