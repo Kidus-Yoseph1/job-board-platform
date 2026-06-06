@@ -48,16 +48,17 @@ const listNotificationsByUser = `-- name: ListNotificationsByUser :many
 SELECT id, user_id, type, title, body, read, created_at FROM notifications
 WHERE user_id = $1
 ORDER BY created_at DESC
-LIMIT $1 OFFSET $2
+LIMIT $2 OFFSET $3
 `
 
 type ListNotificationsByUserParams struct {
-	Limit  int32 `json:"limit"`
-	Offset int32 `json:"offset"`
+	UserID string `json:"user_id"`
+	Limit  int32  `json:"limit"`
+	Offset int32  `json:"offset"`
 }
 
 func (q *Queries) ListNotificationsByUser(ctx context.Context, arg ListNotificationsByUserParams) ([]Notification, error) {
-	rows, err := q.db.QueryContext(ctx, listNotificationsByUser, arg.Limit, arg.Offset)
+	rows, err := q.db.QueryContext(ctx, listNotificationsByUser, arg.UserID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}

@@ -13,6 +13,7 @@ import (
 type Querier interface {
 	CreateEmailJob(ctx context.Context, arg CreateEmailJobParams) (EmailJob, error)
 	CreateNotification(ctx context.Context, arg CreateNotificationParams) (Notification, error)
+	GetPendingEmailJobs(ctx context.Context, limit int32) ([]EmailJob, error)
 	ListNotificationsByUser(ctx context.Context, arg ListNotificationsByUserParams) ([]Notification, error)
 	MarkAllNotificationsRead(ctx context.Context, userID string) error
 	MarkNotificationRead(ctx context.Context, id uuid.UUID) error

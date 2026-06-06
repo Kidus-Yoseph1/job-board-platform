@@ -39,6 +39,45 @@ func (q *Queries) CreateEmailJob(ctx context.Context, arg CreateEmailJobParams) 
 	return i, err
 }
 
+const getPendingEmailJobs = `-- name: GetPendingEmailJobs :many
+SELECT id, to_email, subject, body, status, attempts, created_at, updated_at FROM email_jobs
+WHERE (status = 'pending' OR status = 'failed') AND attempts < 3
+ORDER BY created_at ASC
+LIMIT $1
+`
+
+func (q *Queries) GetPendingEmailJobs(ctx context.Context, limit int32) ([]EmailJob, error) {
+	rows, err := q.db.QueryContext(ctx, getPendingEmailJobs, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []EmailJob{}
+	for rows.Next() {
+		var i EmailJob
+		if err := rows.Scan(
+			&i.ID,
+			&i.ToEmail,
+			&i.Subject,
+			&i.Body,
+			&i.Status,
+			&i.Attempts,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateEmailJobStatus = `-- name: UpdateEmailJobStatus :exec
 UPDATE email_jobs SET status = $1, attempts = attempts + 1, updated_at = now()
 WHERE id = $2

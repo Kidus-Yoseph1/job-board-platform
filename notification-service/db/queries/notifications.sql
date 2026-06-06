@@ -7,7 +7,7 @@ RETURNING *;
 SELECT * FROM notifications
 WHERE user_id = $1
 ORDER BY created_at DESC
-LIMIT $1 OFFSET $2;
+LIMIT $2 OFFSET $3;
 
 -- name: MarkNotificationRead :exec
 UPDATE notifications SET read = true
