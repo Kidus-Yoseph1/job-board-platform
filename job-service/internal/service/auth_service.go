@@ -27,8 +27,8 @@ func NewAuthService(userRepo *repository.UserRepo, jwtSecret string) *AuthServic
 	}
 }
 
-func (s *AuthService) Register(ctx context.Context, fullName, email, password string) (*db.User, error) {
-	s.log.Infow("attempting to register new user", "email", email)
+func (s *AuthService) Register(ctx context.Context, fullName, email, password, role string) (*db.User, error) {
+	s.log.Infow("attempting to register new user", "email", email, "role", role)
 
 	existing, err := s.userRepo.GetUserByEmail(ctx, email)
 	if err != nil {
@@ -46,11 +46,17 @@ func (s *AuthService) Register(ctx context.Context, fullName, email, password st
 		return nil, domain.ErrInternal("could not hash password")
 	}
 
+	// Default role to candidate if empty or invalid
+	userRole := role
+	if userRole != "candidate" && userRole != "company" {
+		userRole = "candidate"
+	}
+
 	userParams := db.CreateUserParams{
 		FullName:     fullName,
 		Email:        email,
 		PasswordHash: string(hash),
-		Role:         "candidate",
+		Role:         userRole,
 	}
 
 	createdUser, err := s.userRepo.CreateUser(ctx, userParams)
@@ -59,7 +65,7 @@ func (s *AuthService) Register(ctx context.Context, fullName, email, password st
 		return nil, domain.ErrInternal("something went wrong")
 	}
 
-	s.log.Infow("user registered successfully", "email", email, "userID", createdUser.ID)
+	s.log.Infow("user registered successfully", "email", email, "userID", createdUser.ID, "role", createdUser.Role)
 	return createdUser, nil
 }
 

@@ -12,24 +12,46 @@ import (
 )
 
 type JobService struct {
-	JobRepo  *repository.JobRepo
-	log      *logger.Logger
-	jobCache *cache.JobCache
+	JobRepo     *repository.JobRepo
+	CompanyRepo *repository.CompanyRepo
+	log         *logger.Logger
+	jobCache    *cache.JobCache
 }
 
-func NewJobService(JobRepo *repository.JobRepo, jobCache *cache.JobCache) *JobService {
+func NewJobService(JobRepo *repository.JobRepo, CompanyRepo *repository.CompanyRepo, jobCache *cache.JobCache) *JobService {
 	return &JobService{
-		JobRepo:  JobRepo,
-		log:      logger.Get(),
-		jobCache: jobCache,
+		JobRepo:     JobRepo,
+		CompanyRepo: CompanyRepo,
+		log:         logger.Get(),
+		jobCache:    jobCache,
 	}
 }
 
-func (s *JobService) CreateJob(ctx context.Context, title string, description string,
+func (s *JobService) CreateJob(ctx context.Context, userID uuid.UUID, title string, description string,
 	category string, location string, jobType string) (*db.Job, error) {
-	s.log.Infow("attempting to create new job", "title", title, "category", category)
+	s.log.Infow("attempting to create new job", "title", title, "category", category, "userID", userID)
+
+	company, err := s.CompanyRepo.GetCompanyByUserID(ctx, userID)
+	if err != nil {
+		s.log.Warnw("failed to get company by userID, will attempt to create one", "error", err, "userID", userID)
+	}
+
+	if company == nil {
+		compParams := db.CreateCompanyParams{
+			UserID:   userID,
+			Name:     "Company Profile",
+			Location: location,
+		}
+		company, err = s.CompanyRepo.CreateCompany(ctx, compParams)
+		if err != nil {
+			s.log.Errorw("failed to create default company profile", "error", err, "userID", userID)
+			return nil, domain.ErrInternal("something went wrong")
+		}
+		s.log.Infow("default company profile created successfully", "companyID", company.ID, "userID", userID)
+	}
 
 	jobParams := db.CreateJobParams{
+		CompanyID:    company.ID,
 		Title:        title,
 		Description:  description,
 		Category:     category,
@@ -39,7 +61,7 @@ func (s *JobService) CreateJob(ctx context.Context, title string, description st
 	}
 	job, err := s.JobRepo.CreateJob(ctx, jobParams)
 	if err != nil {
-		s.log.Errorw("failed to create job in database", "error", err, "title", title)
+		s.log.Errorw("failed to create job in database", "error", err, "title", title, "companyID", company.ID)
 		return nil, domain.ErrInternal("something went wrong")
 	}
 
