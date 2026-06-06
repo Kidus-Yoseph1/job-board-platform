@@ -30,3 +30,7 @@ func (r *EmailJobRepo) UpdateEmailJobStatus(ctx context.Context, arg db.UpdateEm
 	err := r.queries.UpdateEmailJobStatus(ctx, arg)
 	return err
 }
+
+func (r *EmailJobRepo) GetPendingEmailJobs(ctx context.Context, limit int32) ([]db.EmailJob, error) {
+	return r.queries.GetPendingEmailJobs(ctx, limit)
+}
