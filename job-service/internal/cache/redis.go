@@ -46,3 +46,11 @@ func (c *RedisCache) Get(ctx context.Context, key string, dest interface{}) erro
 func (c *RedisCache) Delete(ctx context.Context, keys ...string) error {
 	return c.client.Del(ctx, keys...).Err()
 }
+
+func (c *RedisCache) Publish(ctx context.Context, channel string, message interface{}) error {
+	bytes, err := json.Marshal(message)
+	if err != nil {
+		return err
+	}
+	return c.client.Publish(ctx, channel, bytes).Err()
+}
